@@ -15,8 +15,10 @@ class QRGeneratorApp:
         self.logo_path = None
         self.fill_color = "black"
         self.back_color = "white"
+        self.after_id = None  # Para el debounce
 
         self.create_widgets()
+        self.setup_bindings()
 
     def create_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -44,22 +46,35 @@ class QRGeneratorApp:
 
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=7, column=0, columnspan=2, pady=10)
-        ttk.Button(button_frame, text="Generar QR", command=self.generate_qr).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Guardar QR", command=self.save_qr).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Limpiar", command=self.clear_all).pack(side=tk.LEFT, padx=5)
 
         self.qr_display = ttk.Label(main_frame)
         self.qr_display.grid(row=8, column=0, columnspan=2, pady=10)
 
+    def setup_bindings(self):
+        # Configurar eventos para actualización automática
+        self.text_input.bind("<KeyRelease>", lambda e: self.schedule_qr_update())
+        self.size_var.trace_add("write", lambda *args: self.schedule_qr_update())
+        self.border_var.trace_add("write", lambda *args: self.schedule_qr_update())
+
+    def schedule_qr_update(self):
+        """Programa una actualización del QR después de un pequeño retraso"""
+        if self.after_id:
+            self.root.after_cancel(self.after_id)
+        self.after_id = self.root.after(500, self.generate_qr)  # 500ms de retraso
+
     def choose_fill_color(self):
         color = colorchooser.askcolor(title="Elegir color del QR")[1]
         if color:
             self.fill_color = color
+            self.generate_qr()
 
     def choose_back_color(self):
         color = colorchooser.askcolor(title="Elegir color de fondo")[1]
         if color:
             self.back_color = color
+            self.generate_qr()
 
     def select_logo(self):
         path = filedialog.askopenfilename(
@@ -67,11 +82,12 @@ class QRGeneratorApp:
         )
         if path:
             self.logo_path = path
+            self.generate_qr()
 
     def generate_qr(self):
         text = self.text_input.get().strip()
         if not text:
-            messagebox.showerror("Error", "Ingrese un texto.")
+            self.qr_display.configure(image='')
             return
 
         try:
@@ -86,26 +102,30 @@ class QRGeneratorApp:
             qr_img = qr.make_image(fill_color=self.fill_color, back_color=self.back_color).convert("RGB")
 
             if self.logo_path:
-                logo = Image.open(self.logo_path)
-                qr_width, qr_height = qr_img.size
+                try:
+                    logo = Image.open(self.logo_path)
+                    qr_width, qr_height = qr_img.size
 
-                # Redimensionar logo al 20% del QR
-                logo_size = int(qr_width * 0.2)
-                logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
+                    # Redimensionar logo al 20% del QR
+                    logo_size = int(qr_width * 0.2)
+                    logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
 
-                pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
-                qr_img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+                    pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
+                    qr_img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo procesar el logo: {str(e)}")
 
             self.qr_image = qr_img
             self.photo_image = ImageTk.PhotoImage(qr_img)
             self.qr_display.configure(image=self.photo_image)
 
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo generar el QR: {str(e)}")
+            # No mostramos error para no molestar mientras el usuario escribe
+            pass
 
     def save_qr(self):
         if self.qr_image is None:
-            messagebox.showerror("Error", "Genere un código QR primero.")
+            messagebox.showerror("Error", "No hay código QR para guardar.")
             return
         path = filedialog.asksaveasfilename(defaultextension=".png",
                                             filetypes=[("PNG files", "*.png")])
