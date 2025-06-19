@@ -15,15 +15,12 @@ class QRGeneratorApp:
         self.logo_path = None
         self.fill_color = "black"
         self.back_color = "white"
-        self.after_id = None  # Para el debounce
-
+        self.after_id = None
         self.create_widgets()
         self.setup_bindings()
-
     def create_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
         ttk.Label(main_frame, text="Texto / URL:").grid(row=0, column=0, sticky=tk.W)
         self.text_input = ttk.Entry(main_frame, width=50)
         self.text_input.grid(row=1, column=0, columnspan=2, pady=5)
@@ -43,7 +40,6 @@ class QRGeneratorApp:
         ttk.Button(main_frame, text="Elegir color", command=self.choose_back_color).grid(row=5, column=1)
 
         ttk.Button(main_frame, text="Elegir logo", command=self.select_logo).grid(row=6, column=0, columnspan=2, pady=5)
-
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=7, column=0, columnspan=2, pady=10)
         ttk.Button(button_frame, text="Guardar QR", command=self.save_qr).pack(side=tk.LEFT, padx=5)
@@ -53,13 +49,11 @@ class QRGeneratorApp:
         self.qr_display.grid(row=8, column=0, columnspan=2, pady=10)
 
     def setup_bindings(self):
-        # Configurar eventos para actualización automática
         self.text_input.bind("<KeyRelease>", lambda e: self.schedule_qr_update())
         self.size_var.trace_add("write", lambda *args: self.schedule_qr_update())
         self.border_var.trace_add("write", lambda *args: self.schedule_qr_update())
 
     def schedule_qr_update(self):
-        """Programa una actualización del QR después de un pequeño retraso"""
         if self.after_id:
             self.root.after_cancel(self.after_id)
         self.after_id = self.root.after(500, self.generate_qr)  # 500ms de retraso
